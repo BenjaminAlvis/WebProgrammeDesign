@@ -16,18 +16,25 @@ class SessionsController extends Controller
 
     public function store(Request $request)
     {
-        $credentials = $this->validate($request,[
-            'email' => 'required|email|max:255',
-            'password' => 'required']);
+       $credentials = $this->validate($request, [
+           'email' => 'required|email|max:255',
+           'password' => 'required'
+       ]);
 
-        if(Auth::attempt($credentials,$request->has('remember'))){
-            $fallback = route('users.show', Auth::user());
-            return redirect()->intended($fallback);
-        } else {
-            session()->flash('danger','很抱歉，您提供的邮箱和密码不匹配');
-            return redirect()->back()->withInput();
-        }
-
+       if (Auth::attempt($credentials, $request->has('remember'))) {
+            if(Auth::user()->activated) {
+               session()->flash('success', '欢迎回来！');
+               $fallback = route('users.show', Auth::user());
+               return redirect()->intended($fallback);
+           } else {
+               Auth::logout();
+               session()->flash('warning', '你的账号未激活，请检查邮箱中的注册邮件进行激活。');
+               return redirect('/');
+           }
+       } else {
+           session()->flash('danger', '很抱歉，您的邮箱和密码不匹配');
+           return redirect()->back()->withInput();
+       }
     }
 
     public function destroy()
@@ -42,5 +49,22 @@ class SessionsController extends Controller
         $this->middleware('guest', [
             'only' => ['create']
         ]);
+
+        $this->middleware('auth', [
+            'except' => ['show', 'create', 'store', 'index', 'confirmEmail']
+        ]);
+    }
+
+    public function confirmEmail($token)
+    {
+        $user = User::where('activation_token', $token)->firstOrFail();
+
+        $user->activated = true;
+        $user->activation_token = null;
+        $user->save();
+
+        Auth::login($user);
+        session()->flash('success', '恭喜你，激活成功！');
+        return redirect()->route('users.show', [$user]);
     }
 }
