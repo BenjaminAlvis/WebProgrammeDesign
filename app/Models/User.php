@@ -11,6 +11,11 @@ class User extends Authenticatable
 {
     use Notifiable;
 
+    public function statuses()
+    {
+        return $this->hasMany(Status::class);
+    }
+
 
     protected $table = 'users';
     /**
